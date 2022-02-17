@@ -2,6 +2,7 @@ import csv
 import json
 import time
 import os
+import datetime
 
 '''
 This branch of the plc_emulator goes iterates through the boolean tags of the 'Robot 2 Load Program Parameters' timing diagram.
@@ -10,10 +11,30 @@ Then 'READY' is set back high (1) and 'LOAD_PROGRAM' is dropped low (0), represe
 Keyence and we are now ready to trigger/scan.
 '''
 
-def csv_read():
+class StopWatch:
+    def __init__(self):
+        self.trigger_start_time = datetime.datetime.now()
+    def start(self):
+        self.trigger_start_time = datetime.datetime.now()
+    def stop(self):
+        self.trigger_end_time = datetime.datetime.now()
+    def elapsed(self):
+        self.stop()
+        self.time_diff = (self.trigger_end_time - self.trigger_start_time)
+        self.execution_time = self.time_diff.total_seconds() * 1000
+        return self.execution_time
+
+stop_watch = StopWatch() # global stopwatch var
+current_stage = 0 # global var to track which "stage" of the timing chart we're currently in
+
+def csv_read(io):
     #csv file reader variable declaration
     #file = open('\\phoenix-101\homes\Howard.Roush\Drive\plc_dummy.csv') #Python doesn't like \\
-    file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_dummy.csv')
+    #file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_dummy.csv')
+    if io == 'i':
+        file = open('//phoenix-101/homes/Howard.Roush/Drive/phoenix_to_plc.csv')
+    if io == 'o':
+        file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_to_phoenix.csv')
     csvreader = csv.reader(file)
 
     #creating two lists that will be combined in the dictionary 'plc_dict'
@@ -40,7 +61,8 @@ def csv_read():
 def csv_write(results):
     header = []
     values = []
-    file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_dummy.csv', 'w', newline='')
+    #file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_dummy.csv', 'w', newline='')
+    file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_to_phoenix.csv', 'w', newline='')
     csv_writer = csv.writer(file)
 
     for key in results:
@@ -52,41 +74,89 @@ def csv_write(results):
 
 #Reads in .csv (pretend PLC), sets 'START_PROGRAM' to 1, waits 30 seconds, sets to 0, waits 30 seconds, repeats forever
 def main():
-    x = 10 #seconds variable for artificial pause
+    global stop_watch
+    global current_stage
+    #stop_watch = StopWatch()
+    #stop_watch.start()
+    #print(stop_watch.trigger_start_time)
+    #time.sleep(1)
+    #stop_watch.stop()
+    #print(stop_watch.elapsed())
+    #time.sleep(10)
+
+    x = 3 #seconds variable for artificial pause
     while(True):
-        csv_results = csv_read()
-        #print(csv_results)
+        print(f'CURRENT STAGE : {current_stage}')
+        #global 'current_stage' tracks which stage of the timing process
 
-        # Stage 1 : Load Program Parameters
-        # READY = 1, other boolean flags = 0
-        print('\nStage 1 : Load')
-        csv_results['READY'] = 1
-        print('Writing: \'READY\' : 1')
-        csv_write(csv_results)
-        print(f'Write Complete! Waiting {x} seconds...')
-        time.sleep(x)
+        # READING BOTH .CSV FILES
+        csv_results = csv_read('i') #holds PHOENIX tags / data
+        csv_results_plc = csv_read('o') #holds PLC (Grob) tags / data
 
-        # Stage 2 : Load
-        # READY = 0, LOAD_PROGRAM = 1, mirror data
-        print('\nStage 2: Load')
-        csv_results['READY'] = 0
-        csv_results['LOAD_PROGRAM'] = 1
-        print('Writing \'READY\' : 0 ; \'LOAD_PROGRAM\' : 1')
-        # This is where specific data would be mirrored back to a real PLC (part info, date/time)
-        print('!Data Mirrored Here!')
-        csv_write(csv_results)
-        print(f'Write Complete! Waiting {x} seconds...')
-        time.sleep(x)
+        if(current_stage == 0):
+            #csv_results = csv_read('i') #holds PHOENIX tags / data
+            #csv_results_plc = csv_read('o') #holds PLC (Grob) tags / data
 
-        # Stage 3 : Load
-        # READY = 1, LOAD_PROGRAM = 0, "mirroring data" complete
-        print('\nStage 3 : Load')
-        csv_results['READY'] = 1
-        csv_results['LOAD_PROGRAM'] = 0
-        print('Writing \'READY\' : 1 ; \'LOAD_PROGRAM\' : 0')
-        csv_write(csv_results)
-        print(f'Write Complete! Waiting {x} seconds...')
-        time.sleep(x)
+            #print('Waiting for Phoenix(READY) = 1...')
+            time.sleep(1)
+
+            # Stage 0 : Load Program Parameters
+            # If Phoenix(READY) is high, send PLC(LOAD_PROGRAM) high to begin sequence
+            if(csv_results['READY'] == 1 and csv_results_plc['LOAD_PROGRAM'] == 0):
+                print('\nStage 0 : Load (High)')
+                csv_results_plc['LOAD_PROGRAM'] = 1
+                print('Writing: \'LOAD_PROGRAM\' : 1')
+                csv_write(csv_results_plc)
+                print(f'Write Complete! Waiting {x} seconds...')
+                time.sleep(x)
+                #LOAD PROGRAM SET HIGH AFTER PHOENIX(READY) = 1
+            
+            #print('!Data Mirrored Here!')
+            #TODO on Phoenix Side
+            if(csv_results['READY'] == 1 and csv_results_plc['LOAD_PROGRAM'] == 1):
+                print('Checking for Mirrored Data...')
+                if csv_results['DATA'] == csv_results_plc['DATA']:
+                    print('Data Matches (PLC and Phoenix)')
+                    #Mirroring complete, Phoenix(READY) goes high then PLC(LOAD_PROGRAM) goes low
+
+                    print('\nStage 0 : Load (Low)')
+                    csv_results_plc['LOAD_PROGRAM'] = 0
+                    print('Writing: \'LOAD_PROGRAM\' : 0')
+                    print(f'Stage({current_stage}) Complete!')
+                    csv_write(csv_results_plc)
+                    #print(f'Write Complete! Waiting {x} seconds...')
+                    time.sleep(x)
+                    current_stage += 1 #incrementing to next stage (START/END Program)
+        #END STAGE 0
+        #START STAGE 1 : START/END Program
+        elif (current_stage == 1):
+            print('Stage 1 : Writing PLC(START_PROGRAM) = 1')
+            #Stage 1 : Step 1 : Set PLC(START_PROGRAM) = 1
+            csv_results_plc['START_PROGRAM'] = 1
+            csv_write(csv_results_plc)
+            current_stage += 1
+            time.sleep(1)
+
+        elif(current_stage == 2):
+            print('Stage 2 : Checking if PHOENIX(DONE) so we can reset to Stage 0')
+            time.sleep(1)
+            if(csv_results['DONE'] == 1):
+                print('PHOENIX(DONE) = 1')
+                csv_results_plc['START_PROGRAM'] = 0 #PLC(START_PROGRAM) goes LOW after PHOENIX(DONE) goes HIGH; scan is over and results are ready
+                csv_results_plc['END_PROGRAM'] = 1 #Last event flag from PLC side, signifying to PHOENIX that we're ready to start STAGE 0 again
+                csv_write(csv_results_plc)
+                current_stage += 1
+
+        elif(current_stage == 3):
+            print('Stage 3 : Resetting all flags to Stage 0 status')
+            time.sleep(1)
+            if(csv_results['DONE'] == 1):
+                print('PHOENIX(DONE) = 0\nResetting Flags to Stage 0 State!')
+                csv_results_plc['END_PROGRAM'] = 0
+                csv_write(csv_results_plc)
+                current_stage = 0
+
+
 #END main
 
 if __name__ == '__main__':
