@@ -146,7 +146,7 @@ def main():
                 csv_write(csv_results_plc)
                 current_stage += 1
             time.sleep(1)
-
+        #Final Stage, reset back to Stage 0 once PHOENIX(DONE) is low
         elif(current_stage == 3):
             print('Stage 3 : Resetting all flags to Stage 0 status')
             time.sleep(1)
