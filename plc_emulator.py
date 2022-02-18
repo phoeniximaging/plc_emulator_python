@@ -139,18 +139,18 @@ def main():
 
         elif(current_stage == 2):
             print('Stage 2 : Checking if PHOENIX(DONE) so we can reset to Stage 0')
-            time.sleep(1)
             if(csv_results['DONE'] == 1):
                 print('PHOENIX(DONE) = 1')
                 csv_results_plc['START_PROGRAM'] = 0 #PLC(START_PROGRAM) goes LOW after PHOENIX(DONE) goes HIGH; scan is over and results are ready
                 csv_results_plc['END_PROGRAM'] = 1 #Last event flag from PLC side, signifying to PHOENIX that we're ready to start STAGE 0 again
                 csv_write(csv_results_plc)
                 current_stage += 1
+            time.sleep(1)
 
         elif(current_stage == 3):
             print('Stage 3 : Resetting all flags to Stage 0 status')
             time.sleep(1)
-            if(csv_results['DONE'] == 1):
+            if(csv_results['DONE'] == 0):
                 print('PHOENIX(DONE) = 0\nResetting Flags to Stage 0 State!')
                 csv_results_plc['END_PROGRAM'] = 0
                 csv_write(csv_results_plc)
