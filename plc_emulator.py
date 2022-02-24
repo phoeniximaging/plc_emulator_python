@@ -25,7 +25,7 @@ class StopWatch:
         return self.execution_time
 
 stop_watch = StopWatch() # global stopwatch var
-current_stage = 0 # global var to track which "stage" of the timing chart we're currently in
+current_stage = -1 # global var to track which "stage" of the timing chart we're currently in
 
 def csv_read(io):
     #csv file reader variable declaration
@@ -108,7 +108,18 @@ def main():
         csv_results = csv_read('i') #holds PHOENIX tags / data
         csv_results_plc = csv_read('o') #holds PLC (Grob) tags / data
 
-        if(current_stage == 0):
+        if(current_stage == -1):
+            csv_results_plc['LOAD_PROGRAM'] = 0
+            csv_results_plc['START_PROGRAM'] = 0
+            csv_results_plc['END_SCAN'] = 0
+            csv_results_plc['END_PROGRAM'] = 0
+            csv_results_plc['ABORT_PROGRAM'] = 0
+            csv_results_plc['DATA'] = 99
+            csv_write(csv_results_plc)
+            print(f'Stage {current_stage} : Writing Default Starting Values to PLC (0\'s)')
+            current_stage += 1
+
+        elif(current_stage == 0):
             #csv_results = csv_read('i') #holds PHOENIX tags / data
             #csv_results_plc = csv_read('o') #holds PLC (Grob) tags / data
 
