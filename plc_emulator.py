@@ -37,24 +37,39 @@ def csv_read(io):
         file = open('//phoenix-101/homes/Howard.Roush/Drive/plc_to_phoenix.csv')
     csvreader = csv.reader(file)
 
-    #creating two lists that will be combined in the dictionary 'plc_dict'
-    header = []
-    header = next(csvreader) # tag names
-    values = []
-    values = next(csvreader) # values
+    #header = []
+    #header = next(csvreader) # tag names
+    #print(header)
 
-    #print(len(header))
-    #print(values)
+    plc_dict = {}
 
-    plc_dict = {} # dictionary: key = tag name
-    #setting relevant value for each tag
-    for x in range(len(header)):
-        plc_dict[header[x]] = int(values[x]) #populating dict, casting to int for simplicity
+    while(len(plc_dict) == 0):
+        try:
+            #creating two lists that will be combined in the dictionary 'plc_dict'
+            header = []
+            header = next(csvreader) # tag names
+            #print(header)
+            values = []
+            values = next(csvreader) # values
+            #print(values)
+        
+            #print(len(header))
+            #print(values)
 
-    #print(plc_dict)
-    #print()
-    #print(type(plc_dict['LOAD_PROGRAM']))
+            #plc_dict = {} # dictionary: key = tag name
+            #setting relevant value for each tag
+            for x in range(len(header)):
+                plc_dict[header[x]] = int(values[x]) #populating dict, casting to int for simplicity
+
+            
+            #print(plc_dict)
+            #print()
+            #print(type(plc_dict['LOAD_PROGRAM']))
+        except Exception as e:
+            print(f'EXCEPTION : {e}')
+            pass
     return plc_dict
+    
 #END csv_read
 
 # Writes back to .csv (plc) with current tag values
@@ -109,11 +124,18 @@ def main():
                 csv_write(csv_results_plc)
                 print(f'Write Complete! Waiting {x} seconds...')
                 time.sleep(x)
+                current_stage += 1
                 #LOAD PROGRAM SET HIGH AFTER PHOENIX(READY) = 1
-            
+        #END STAGE 0
+
+        elif (current_stage == 1):
+            print('Stage 1 : Verifying Mirrored Data')
+            time.sleep(1)
             #print('!Data Mirrored Here!')
             #TODO on Phoenix Side
-            if(csv_results['READY'] == 1 and csv_results_plc['LOAD_PROGRAM'] == 1):
+            # BAD PRACTICE, set to check READY = 0
+            #if(csv_results['READY'] == 1 and csv_results_plc['LOAD_PROGRAM'] == 1):
+            if(csv_results['READY'] == 1):
                 print('Checking for Mirrored Data...')
                 if csv_results['DATA'] == csv_results_plc['DATA']:
                     print('Data Matches (PLC and Phoenix)')
@@ -127,18 +149,18 @@ def main():
                     #print(f'Write Complete! Waiting {x} seconds...')
                     time.sleep(x)
                     current_stage += 1 #incrementing to next stage (START/END Program)
-        #END STAGE 0
+
         #START STAGE 1 : START/END Program
-        elif (current_stage == 1):
-            print('Stage 1 : Writing PLC(START_PROGRAM) = 1')
+        elif (current_stage == 2):
+            print('Stage 2 : Writing PLC(START_PROGRAM) = 1')
             #Stage 1 : Step 1 : Set PLC(START_PROGRAM) = 1
             csv_results_plc['START_PROGRAM'] = 1
             csv_write(csv_results_plc)
             current_stage += 1
             time.sleep(1)
 
-        elif(current_stage == 2):
-            print('Stage 2 : Checking if PHOENIX(DONE) so we can reset to Stage 0')
+        elif(current_stage == 3):
+            print('Stage 3 : Checking if PHOENIX(DONE) so we can reset to Stage 0')
             if(csv_results['DONE'] == 1):
                 print('PHOENIX(DONE) = 1')
                 csv_results_plc['START_PROGRAM'] = 0 #PLC(START_PROGRAM) goes LOW after PHOENIX(DONE) goes HIGH; scan is over and results are ready
@@ -147,8 +169,8 @@ def main():
                 current_stage += 1
             time.sleep(1)
         #Final Stage, reset back to Stage 0 once PHOENIX(DONE) is low
-        elif(current_stage == 3):
-            print('Stage 3 : Resetting all flags to Stage 0 status')
+        elif(current_stage == 4):
+            print('Stage 4 : Resetting all flags to Stage 0 status')
             time.sleep(1)
             if(csv_results['DONE'] == 0):
                 print('PHOENIX(DONE) = 0\nResetting Flags to Stage 0 State!')

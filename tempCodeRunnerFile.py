@@ -1,2 +1,3 @@
-
-    values = next(csvreader) # values
+values = []
+        values = next(csvreader) # values
+        print(values)
